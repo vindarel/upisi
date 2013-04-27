@@ -8,22 +8,27 @@ En développement.
 
 Usage :
 
-- écrire un script bash de post-installation de la forme :
-  apt-get install foo bar
+- écrire un script bash de post-installation, comme d'habitude, de la forme :
+  apt-get install -f foo bar
   echo do something
 
-- utiliser des tags spéciaux en commentaire pour agir sur l'interface Gtk :
+- utiliser des tags spéciaux en commentaire pour agir sur l'interface graphique Gtk :
   - #+title: un titre
-  - #+doc: de la documentation sur l'élément suivant
+  - #+doc: de la documentation sur l'élément
   - #+begin … #+end : regroupe plusieurs commandes shell
+  - #+cat: Une catégorie
+    …
+    #+end_cat
+    Tout ce qui est dans la catégorie sera regroupé sous une flèche à dérouler.
+
   - #+gui:toggle=False : indique à l'interface de ne pas sélectionner cet élément par défaut.
 
-- lancer python upotism.py <votre script.sh> gui.glade
+- exécuter le script: `source upisi.sh`
 
 
-Dév :
+Pour le dév :
 - postinstaller.py : parser du script
-- gui.glade : interface graphique Gtk+3 (utiliser avec glade)
+- gui.glade : interface graphique Gtk+3 (utiliser glade)
 - upotism.py : programme principal
 - utils.py : méthodes annexes
-- data_test_scrip.sh : exemple complet de script possible
+- mint-postinstall.sh : exemple complet de script possible
