@@ -16,14 +16,15 @@ Usage :
   - #+title: un titre
   - #+doc: de la documentation sur l'élément
   - #+begin … #+end : regroupe plusieurs commandes shell
-  - #+cat: Une catégorie
+  - `#+cat: Une catégorie
     …
-    #+end_cat
-    Tout ce qui est dans la catégorie sera regroupé sous une flèche à dérouler.
+    #+end_cat`
+
+    Tout ce qui est dans la catégorie sera regroupé sous une flèche à dérouler. On peut imbriquer autant de catégorie que l'on veut.
 
   - #+gui:toggle=False : indique à l'interface de ne pas sélectionner cet élément par défaut.
 
-- exécuter le script: `source upisi.sh`
+- exécuter le script: `python upotism.py`
 
 
 Pour le dév :
