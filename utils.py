@@ -94,14 +94,20 @@ def construct_doc(item, cat=None):
 
 def synaptic_install(packages): #marche pareil.
     """
-    Essai d'appel à usr/bin/upisi-synaptic_install avec gksu, de sorte que…_quoi ? Si ça marche, faire pareil pour exécuter les commandes.
+    Essai d'appel à usr/bin/upisi-synaptic_install avec gksu.
+
+    - `packages`: liste de paquets à installer.
+
+    Retourne le code de retour de synaptic.
     """
     command = "gksu usr/bin/upisi-synaptic-install "
     for pack in packages:
         command += " " + pack
 
 
-    os.system(command)
+    ret = os.system(command)
+    print 'code retour synaptic: ', ret
+    return ret
 
 def synaptic_install_marche(packages):
     """Installer les paquets avec l'aide de synaptic. """
@@ -116,7 +122,6 @@ def synaptic_install_marche(packages):
     cmd.append("--set-selections-file")
     cmd.append("%s" % f.name)
     f.flush()
-    # comnd = Popen(' '.join(cmd), shell=True)
 
     DESKTOP_SESSION = environ.get('DESKTOP_SESSION')
     if 'kde' in DESKTOP_SESSION:
@@ -128,7 +133,7 @@ def synaptic_install_marche(packages):
         sudocmd = 'gksudo'
 
     # essai avec gksudo : ok quand le logiciel est vraiment à installer.
-    comnd = Popen( [sudocmd, ' '.join(cmd)], stdout=PIPE, stderr=PIPE ) # marche avec ipython !
+    comnd = Popen( [sudocmd, ' '.join(cmd)], stdout=PIPE, stderr=PIPE )
 
     # todo: récupérer erreur quand logiciel n'existe pas ou déjà présent. Pour l'instant on ne voit rien.
     # todo: utiliser kdesudo si KDE
@@ -163,21 +168,11 @@ def exec_command(com):
         # on obtient le bug suivant, connu depuis 2009 :
         # (gksudo:8361): GLib-CRITICAL **: g_str_has_prefix: assertion `str != NULL' failed
         # donc si on ne peut pas lancer de commandes sudo… gksudo au lancement ?
-        print 'exec avec sudo'  # debug
         com = com[4:]
 
-        com = 'gksudo ' + com   # ça marche :) Tout simplement :) 17 mars
+        com = 'gksudo ' + com
         os.system(com)
         return
-
-
-        # letsgo = subprocess.Popen([sudocmd, ' '.join(com) ], shell=True,\
-        #                      stdout=subprocess.PIPE, stderr=subprocess.PIPE) #marche pas : bug ci-dessus.
-        # returnCode = letsgo.wait()
-        # stdout =  letsgo.stdout.read()
-        # stderr =  letsgo.stderr.read()
-        # print 'stdout: ', stdout # debug
-        # print 'stderr: ', stderr # debug
 
 
     else:
@@ -192,17 +187,6 @@ def exec_command(com):
         print 'stderr: ', stderr
 
     return (returnCode, stdout, stderr)
-
-
-
-
-
-
-def packages_install(packages):
-    import scriptit
-    #todo: demander le mot de passe sudo graphiquement.
-    # scriptit.showexec('installation des paquets…', _APT_INSTALL + ' '.join( ['%s' % package for package in packages]) )
-
 
 
 

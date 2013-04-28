@@ -550,6 +550,19 @@ class PostInstaller:
         Gtk.main_quit()
 
 
+    def display_dialog(self, message):
+        """Affiche une boite de dialogue d'information très simple pour afficher le message donné.
+        """
+
+        # boite de dialogue très rapide :
+        self.dialog = self.builder.get_object('messagedialog1')
+        self.dialog.format_secondary_text(message)
+        self.dialog.run()
+        self.dialog.hide()
+
+
+        self.expander.set_label(message)
+
 
     def install_apps(self):
         # s'inspirer de mintinstall https://github.com/linuxmint/mintinstall/blob/master/usr/bin/mint-synaptic-install
@@ -559,9 +572,21 @@ class PostInstaller:
 
         if self.TO_INSTALL:
             if os.path.isfile(_SYNAPTIC_PATH):
+                ret = utils.synaptic_install(self.TO_INSTALL)
 
-            #todo: bug: si firefox n'est pas déjà lancé, attends la fin du process :/
-                utils.synaptic_install(self.TO_INSTALL)
+                if ret == 0:
+
+                    self.display_dialog("Tous les paquets ont été installés avec succès.")
+                    # # boite de dialogue très rapide :
+                    # self.dialog = self.builder.get_object('messagedialog1')
+                    # self.dialog.format_secondary_text('Tous les paquets ont été installés avec succès.')
+                    # self.dialog.run()
+                    # self.dialog.hide()
+
+
+                    # self.expander.set_label("Toutes les paquets ont été installés avec succès.")
+
+
             else:
                 pacman = utils.get_package_manager()
                 if not pacman:
@@ -588,13 +613,15 @@ class PostInstaller:
         else:
             if self.TO_EXEC:
                 # boite de dialogue très rapide :
-                self.dialog = self.builder.get_object('messagedialog1')
-                self.dialog.format_secondary_text('Toutes les commandes ont été executées avec succès.')
-                self.dialog.run()
-                self.dialog.hide()
+                self.display_dialog("Toutes les commandes ont été exécutées avec succès.")
+
+                # self.dialog = self.builder.get_object('messagedialog1')
+                # self.dialog.format_secondary_text('Toutes les commandes ont été executées avec succès.')
+                # self.dialog.run()
+                # self.dialog.hide()
 
 
-                self.expander.set_label("Toutes les commandes ont été executées avec succès")
+                # self.expander.set_label("Toutes les commandes ont été executées avec succès")
 
 
 
