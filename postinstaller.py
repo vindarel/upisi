@@ -235,8 +235,8 @@ def parser(f, end_pattern=None, toggle=True):
         if line == 'EOF':
             return ITEMS
 
-        if end_pattern != None:
-            if line.strip() == end_pattern.strip():
+        if end_pattern:
+            if line.startswith(end_pattern):
                 return ITEMS
 
 
@@ -262,16 +262,28 @@ def parser(f, end_pattern=None, toggle=True):
         elif line.startswith(_SH):
             # en fait on a une commande shell si on n'a rien reconnu…
             title = line[len(_SH) :].strip()
+            item  = {'title':title}
 
             line = f.readline()
+
+            if line.startswith(_DOC):
+                # doc = line[len(_DOC) :].strip()
+                line, doc = get_doc(f, line)
+                item['doc'] = doc
+                line = nextline(f).strip()
+
+
             # line = nextline(ignore_comments = True)
             while line.strip().startswith('#') or \
                     line.strip() is '' or line.startswith('\\n'):
                 line = f.readline()
 
-            ITEMS.append({'title':title,
-                          'gui_toggle':_TOGGLE_COUR,
-                          'sh': [line.strip(),] })
+            # ITEMS.append({'title':title,
+                          # 'gui_toggle':_TOGGLE_COUR,
+                          # 'sh': [line.strip(),]  })
+            item['gui_toggle'] = _TOGGLE_COUR
+            item['sh'] = [line.strip(),]
+            ITEMS.append(item)
             # line = nextline()   # sans cette ligne -> pb avec apps TODO
 
         # Une suite de commandes shell
