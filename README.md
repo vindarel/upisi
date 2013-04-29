@@ -15,7 +15,10 @@ Usage :
 - utiliser des tags spéciaux en commentaire pour agir sur l'interface graphique Gtk :
   - #+title: un titre
   - #+doc: de la documentation sur l'élément
-  - #+begin … #+end : regroupe plusieurs commandes shell
+  - #+sh: titre donné à cette commande shell (une ligne seule est interprétée comme une commande shell). Pour regrouper plusieurs commandes :
+  - #+begin … #+end : toutes les commandes seront exécutées ensemble.
+
+On peut organiser l'interface graphique par catégories :
   - `#+cat: Une catégorie
     …
     #+end_cat`
@@ -24,7 +27,8 @@ Usage :
 
   - #+gui:toggle=False : indique à l'interface de ne pas sélectionner cet élément par défaut.
 
-- exécuter le script: `python upotism.py`
+
+- Une commande pour télécharger et lancer Upisi : `git clone https://github.com/vindarel/upisi.git && cd upisi/ && python upotism.py`
 
 
 Pour le dév :
