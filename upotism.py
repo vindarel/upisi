@@ -315,14 +315,13 @@ class PostInstaller:
             file_url = utils.dl_url(url)
 
             if not file_url:
-                print "Impossible d'ouvrir le fichier associé à cette url."
+                print "Impossible d'ouvrir le fichier associé à cette url %s" % url
+                self.dialog_url.hide()
 
-            print 'on va ouvrir: ', file_url.name # debug
-            self.dialog_url.hide()
-            self.open(file_url)
-
-        else:
-            self.dialog_url.hide()
+            else:
+                self.dialog_url.hide()
+                to_open = open(file_url, 'r')
+                self.open(to_open)
 
 
 
@@ -432,7 +431,8 @@ class PostInstaller:
                     # chercher l'image
                     print 'chercher l image'
 
-                    image = utils.get_img(it_cour['img'].strip() )
+                    image, folder_path = utils.get_img(it_cour['img'].strip() )
+
                     if not image:
                         print 'No image to display for %s.' % it_cour['title']
                         # It does not work, so we don't want to try each time

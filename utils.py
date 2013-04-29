@@ -6,6 +6,7 @@ import os
 import re
 import platform
 import tempfile
+import glob
 from cgi import escape
 import subprocess #pour gksudo
 from subprocess import Popen, PIPE
@@ -235,11 +236,46 @@ def get_package_manager(packman):
 
 
 def dl_url(url):
-    """Télécharge le fichier texte désigné par l'url, crée un fichier temporaire et retourne le fichier ouvert en lecture (ou None si impossible).
+    """Télécharge le fichier texte ou le dépôt git désigné par l'url, crée un fichier temporaire.
+
+    return: le nom du fichier script, ouvert en lecture (ou None si impossible).
 
     """
     if not url.startswith('http'):
+        print "Ceci n'est pas une url valide %s" % url
         return None
+
+    if url.endswith('git'):
+        try:
+            if not os.path.isdir('/tmp/upisi'): # TODO set global variable for dir
+                os.system('mkdir upisi')
+
+            # on doit choper le nom du depot :
+            folder_name = url.split("/")[-1][:-4] # le -4 enlève le '.git' du nom. On peut faire plus clair !
+
+            ret = os.system("cd /tmp/upisi/" + folder_name + " && git clone " + url)
+
+            if not ret:
+                print "error while cloning git repo in folder %s" % folder_name
+                return None
+
+            # On doit trouver un script shell:
+            script_list = glob.glob('/tmp/upisi/' + folder_name + "/" + '*.sh')
+            if script_list:
+                script_name = script_list[0]
+
+            else:
+                print "We didn't find any shell script in %s " % folder_name
+                return None
+
+            print 'on ouvre %s' % script_name
+            return script_name
+
+
+        except:
+            print 'Impossible de télécharger le dépôt git dans le dossier temporaire'
+            return None
+
 
     # On télécharge dans un fichier temporaire.
     # On pourra faire une meilleure gestion.
