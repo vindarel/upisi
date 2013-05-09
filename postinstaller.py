@@ -34,7 +34,7 @@ _IGNORE = '#+ignore'
 _GUI = '#+gui'
 _GUI_TOGGLE = _GUI+':toggle='
 
-_IMG = '#+img:'
+_IM = '#+im:'
 """Display local or remote images for the given element."""
 
 _PACKMAN = None
@@ -167,14 +167,14 @@ def get_doc(f, line):
     g.seek(f.tell())
 
     while line.startswith('#') and not line.startswith(_GUI) and not \
-            line.startswith(_IMG):
+            line.startswith(_IM):
 
         doc +=  line[len(_DOC) :].strip() if _DOC in line else line[1:].strip()
         doc += ' '
         # gline = nextline(g).strip()
         gline = g.readline().strip()
         if gline.startswith('#') and not gline.startswith(_GUI) and not \
-                line.startswith(_IMG):
+                line.startswith(_IM):
             # line = nextline(f).strip()
             line = f.readline().strip()
         else:
@@ -190,10 +190,47 @@ def get_title(line):
     """Le titre est la chaine après le dernier caractère ':'"""
     pass
 
-def is_call_to_package_manager(line):
-    """Renvoie True si la ligne commence par 'sudo apt-get install', où apt-get peut être un autre package manager (yum, equo, aptitude,…)."""
 
-    # Tous la même chose : peuvent être précédées par su et ses variantes su -C ou sudo. Mais l'essentiel est qu'on a 'foo install' dans la ligne.
+def is_upgrade(line):
+    """Renvoie True si la ligne est un appel à mettre à jour le
+    système. Si oui, on appellera un joli gestionnaire graphique.
+
+    La ligne peut prendre la forme :
+
+    - [sudo] apt-get [update && [sudo]] apt-get upgrade [-y]
+
+    où apt-get peut être un autre gestionnaire de paquets, mais tout
+    ce qui importe, c'est que la ligne contienne un appel à upgrade.
+    """
+    upgrades = ["aptitude upgrade", "aptitude dist-upgrade", "apt-get upgrade",
+                "apt-get dist-upgrade", "yum upgrade", "equo upgrade", # TODO à compléter !
+                ]
+
+    global UPGRADE_CMD
+    for up in upgrades:
+        if up in line:
+            UPGRADE_CMD = line
+            return True
+
+    return False
+
+
+def is_call_to_package_manager(line):
+    """Renvoie True si la ligne commence par '[sudo] apt-get install [-y]',
+    où apt-get peut être un autre gestionnaire de paquets (yum, equo,
+    aptitude,…) et où sudo peut être 'su' ou 'su -C'.
+
+    Faire ici abstraction du gestionnaire de paquets, et ne le choisir
+    en fonction du système qu'au moment de l'installation, permet par
+    exemple d'utiliser un script contenant apt-get sous fedora.
+
+    Attention : les lignes de la forme `apt-get install foo && echo
+    'do something'` ne sont pas prises en compte !
+    """
+
+    # Tous la même chose : peuvent être précédées par su et ses
+    # variantes su -C ou sudo. Mais l'essentiel est qu'on a 'foo
+    # install' dans la ligne.
     if line.startswith('#'):
         return False
 
@@ -210,13 +247,46 @@ def is_call_to_package_manager(line):
 
     return False
 
-    # if line.startswith("sudo aptitude install") or line.startswith('aptitude install') or \
-    #         line.startswith('sudo apt-get install') or line.startswith('apt-get install') or \
-    #         line.startswith('yum install') or line.startswith('sudo yum install'):
-    #     return True
 
-    # else:
-    #     return False
+def get_doc_im_toggle(line, f):
+    """Retourne un tupple (ligne courante, doc, image, toggle), directement à mettre dans item['foo']
+    """
+    # todo changer l'algo…
+
+    doc = img = toggle = None
+
+    while line.startswith(_DOC) or line.startswith(_GUI) or \
+            line.startswith(_IM):
+        if line.startswith(_DOC):
+            # doc = line[len(_DOC) :].strip()
+            line, doc = get_doc(f, line)
+            # item['doc'] = doc
+            line = nextline(f).strip()
+
+        if line.startswith(_GUI):
+            if line.startswith(_GUI_TOGGLE):
+                if 'True' in line:
+                    # item['gui_toggle'] = True
+                    toggle = True
+                elif 'False' in line:
+                    # item['gui_toggle'] = False
+                    toggle = False
+                else:
+                    print "Option %s inconnue.", line
+
+            else:
+                    pass
+
+            line = nextline(f)
+
+
+        if line.startswith(_IM):
+            img = line[len(_IM) : ]
+            # item['im'] = img
+            line = nextline(f)
+
+    #end while
+    return (line, doc, img, toggle)
 
 
 
@@ -240,14 +310,15 @@ def parser(f, end_pattern=None, toggle=True):
                 return ITEMS
 
 
+        if not line.startswith('#') and  is_upgrade(line):
+            print 'we want an upgrade system : update-manager, mintupdate, autre ?'
+
+            line = nextline(f)
+
+
         # Lignes simples, sans titre explicite.  Le titre devient la
         # suite de programmes (qui ne sont pas en doubles)
-        if is_call_to_package_manager(line):
-        # if line.startswith("sudo aptitude install") or line.startswith('aptitude install') or \
-                # line.startswith('sudo apt-get install') or line.startswith('apt-get install'):
-            #  ne pas se cantonner à reconnaitre apt, mais aussi yum, yaourt et les autres.
-            # import platform
-            # platform.platform -> Linux … pae…LinuxMint Debian
+        elif is_call_to_package_manager(line):
             line = multiline(f, line)
             # Nouvel item :
             apps = getapps(line)
@@ -266,14 +337,19 @@ def parser(f, end_pattern=None, toggle=True):
 
             line = f.readline()
 
-            if line.startswith(_DOC):
-                # doc = line[len(_DOC) :].strip()
-                line, doc = get_doc(f, line)
+            item['gui_toggle'] = _TOGGLE_COUR
+
+            line, doc, im, toggle = get_doc_im_toggle(line, f)
+
+            if doc:
+                # can't make it shorter 'cause we don't want to create
+                # the key if doc is None
                 item['doc'] = doc
-                line = nextline(f).strip()
+            if im:
+                item['im'] = im
 
+            item['toggle'] = toggle if toggle else _TOGGLE_COUR
 
-            # line = nextline(ignore_comments = True)
             while line.strip().startswith('#') or \
                     line.strip() is '' or line.startswith('\\n'):
                 line = f.readline()
@@ -281,32 +357,34 @@ def parser(f, end_pattern=None, toggle=True):
             # ITEMS.append({'title':title,
                           # 'gui_toggle':_TOGGLE_COUR,
                           # 'sh': [line.strip(),]  })
-            item['gui_toggle'] = _TOGGLE_COUR
             item['sh'] = [line.strip(),]
             ITEMS.append(item)
             # line = nextline()   # sans cette ligne -> pb avec apps TODO
 
         # Une suite de commandes shell
         elif line.startswith(_BEGIN):
-            # attention que les commandes doivent être exécutées en UNE fois,
-            # et pas ligne après ligne (if, then, else, …)
+
             commands = []
             commands.append("")
-
 
             title = line[len(_BEGIN) :].strip()
             item = {'title':title, 'gui_toggle':_TOGGLE_COUR}
 
             line = nextline(f)
+
+            line, doc, img, toggle = get_doc_im_toggle(line, f)
+            if doc:
+                item['doc'] = doc
+            if img:
+                item['im'] = img
+            item['gui_toggle'] = toggle if toggle else _TOGGLE_COUR
+
             while not line.strip() ==  _END:
-                # commands.append(line.strip())
                 commands[0] += "\n" + line.strip()
                 line = nextline(f)
 
             item['sh'] = commands
-
             ITEMS.append(item)
-
 
         # On détecte un titre, donc un nouvel item.
         elif line.startswith(_ITEM) or line.startswith(_ITEM2):
@@ -314,46 +392,30 @@ def parser(f, end_pattern=None, toggle=True):
             item['gui_toggle'] = _TOGGLE_COUR
             ITEMS.append(item)
 
-            # line = f.readline() # ou nextline ??
             line = nextline(f)
 
-            # Ce if est 'nesté' car on veut rester sur le même item
+            line, doc, im, toggle = get_doc_im_toggle(line, f)
 
-            # attention: en ajoutant un attribut dans le or, ne pas
-            # oublier de le rajouter dans get_doc
-            while line.startswith(_DOC) or line.startswith(_GUI) or \
-                    line.startswith(_IMG):
-                if line.startswith(_DOC):
-                    # doc = line[len(_DOC) :].strip()
-                    line, doc = get_doc(f, line)
-                    item['doc'] = doc
-                    line = nextline(f).strip()
+            if doc:
+                item['doc'] = doc
+            if im:
+                item['im'] = im
 
-                if line.startswith(_GUI):
-                    if line.startswith(_GUI_TOGGLE):
-                        if 'True' in line:
-                            item['gui_toggle'] = True
-                        elif 'False' in line:
-                            item['gui_toggle'] = False
-                        else:
-                            print "Option %s inconnue.", line
-
-                    else:
-                        pass
-
-                    line = nextline(f)
+            item['toggle'] = toggle if toggle else _TOGGLE_COUR
 
 
-                if line.startswith(_IMG):
-                    img = line[len(_IMG) : ]
-                    item['img'] = img
-                    line = nextline(f)
+            if is_upgrade(line):
+                item['sh'] = [line,]
+                item['doc'] = "Cliquez pour mettre à jour votre système." # TODO
+                item['upgrade'] = True
+                line = nextline(f)
 
-            if is_call_to_package_manager(line):
+            elif is_call_to_package_manager(line):
                 # Lire la ligne suivante si on trouve un \
                 line = multiline(f, line)
 
                 item['apps'] = getapps(line)
+
 
             else:
                 item['sh'] = [line.strip(), ]
@@ -393,7 +455,6 @@ def parser(f, end_pattern=None, toggle=True):
 
             ITEMS.append(cat)
             CATS.append(cat_title.strip())
-
 
 
         elif line.startswith(_IGNORE):

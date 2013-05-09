@@ -1,0 +1,32 @@
+#! /usr/bin/python
+# -*- coding: utf-8 -*-
+
+# Directement inspiré de MintInstall.
+# ~/projets/mintinstall/usr/bin/mint-synaptic-install
+
+import sys
+import tempfile
+from subprocess import Popen, PIPE
+
+cmd = ["sudo", "/usr/sbin/synaptic", "--hide-main-window", "--non-interactive"]
+
+packages = sys.argv[1:]
+print 'paquets dans upisi-synaptic:', packages
+
+f = tempfile.NamedTemporaryFile()
+
+# packages = ['htop']             # debug
+
+for package in packages:
+    f.write("%s\tinstall\n" % package)
+
+cmd.append("--set-selections-file")
+cmd.append("%s" % f.name)
+f.flush()
+comnd = Popen( [ ' '.join(cmd)], stdout=PIPE, stderr=PIPE, shell=True )
+
+returnCode = comnd.wait()
+print 'return code synaptic: ', returnCode #debug
+stdout = comnd.stdout.read()
+stderr = comnd.stderr.read()
+f.close()

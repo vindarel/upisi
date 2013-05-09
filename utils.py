@@ -1,12 +1,16 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
 
+import postinstaller
+
 import sys
 import os
 import re
 import platform
 import tempfile
 import glob
+import traceback
+
 from cgi import escape
 import subprocess #pour gksudo
 from subprocess import Popen, PIPE
@@ -27,7 +31,11 @@ def link(string, mouse, url):
 def construct_doc(item, cat=None):
     """Construit la documentation associée à un item.
 
-    Arguments: - `item`: dico devant contenir 'title' et pouvant
+    Attention, le lien doit être de la forme [http… | txt ]
+
+    Arguments:
+
+    - `item`: dico devant contenir 'title' et pouvant
     contenir 'app' avec une liste de paquets à être installés, 'sh'
     avec une liste de commandes shell, 'doc'.  'doc' peut être une
     suite de str ou la référence à un site internet ou à un fichier
@@ -43,42 +51,24 @@ def construct_doc(item, cat=None):
 
         return doc
     doc = ""
-    if item.has_key('doc'):
+
+
+
+    if item.has_key('doc') and item['doc']:
         doc = item['doc'] + "\n\n"
         doc_cour = doc.strip()
 
-        if doc.startswith('http'): # in doc:
-            doc = "Veuilez visiter le site suivant pour plus d'informations :\n"
-            doc += link(doc_cour, doc_cour, doc_cour) + "\n\n"
-        elif 'http' in doc:
-
-            try:
-            # Remplacer [http://foo | texte] par la syntaxe Gtk
-            # il faudra trouver un outil existant.
-                lien = re.findall('http.*\|', doc)
-                lien = lien[0].replace("|", "")
-
-                txt = re.findall("\|.*]", doc)
-                txt = txt[0].replace("|", "")
-                txt = txt.replace("]", "")
-                url_txt = link(txt, lien, lien)
-
-                all_occ = re.findall('\[.*\]', doc)
-                doc = doc.replace(all_occ[0], url_txt)
-
-            except:
-                print "Error in manipulating http link for %s" % doc
-                return doc
-
 
     if item.has_key('sh'):
+
         doc += "Cet élément lancera les commandes suivantes :"
         doc += "\n\t" + "\n\t".join( ['%s' % cmd for cmd in item['sh'] ])
-        if doc.endswith('&'):
-            # Gtk ne rend pas le texte s'il y a une esperluette.  Il
-            # faut les échapper (remplacer & par &amp; ) et c'est
-            # possible avec cgi.escape
-            doc = escape(doc)
+
+        # Échapper les caractères spéciaux qui font cracher Gtk, tels
+        # que l'esperluette & (du coup il faut construire le lien
+        # hypertexte à la fin, sinon il est aussi transformé en simple
+        # texte)
+        doc = escape(doc)
 
     elif item.has_key('apps'):
         apps = '\n\t' + '\n\t'.join( ['%s' % app for app in item['apps'] ])
@@ -90,6 +80,36 @@ def construct_doc(item, cat=None):
 
     else:
         doc = 'pas de titre = pb'
+
+
+    # Construire lien http :
+    if doc.startswith('http'): # in doc:
+        doc = "Veuilez visiter le site suivant pour plus d'informations :\n"
+        doc += link(doc_cour, doc_cour, doc_cour) + "\n\n"
+    elif 'http' in doc and '[' in doc: # todo: mieux reconnaître le lien«
+
+        try:
+            # Remplacer [http://foo | texte] par la syntaxe Gtk
+            # il faudra trouver un outil existant.
+
+            #  On n'a pas besoin du | au milieu !
+            lien = re.findall('http.*\|', doc)
+            lien = lien[0].replace("|", "")
+
+            txt = re.findall("\|.*]", doc)
+            txt = txt[0].replace("|", "")
+            txt = txt.replace("]", "")
+            url_txt = link(txt, lien, lien)
+
+            all_occ = re.findall('\[.*\]', doc)
+            doc = doc.replace(all_occ[0], url_txt)
+
+        except Exception, e:
+            print "Error in manipulating http link for %s. We didn't have the right syntax." % doc
+            print e
+            return doc
+
+
 
     return doc
 
@@ -131,6 +151,7 @@ def synaptic_install_marche(packages):
         sudocmd = 'gksudo'
     else:
         #else I don't knom. Let's try gksudo
+        print "You're not running either kde, mate or gnome. Do you have gksudo ?"
         sudocmd = 'gksudo'
 
     # essai avec gksudo : ok quand le logiciel est vraiment à installer.
@@ -190,6 +211,58 @@ def exec_command(com):
     return (returnCode, stdout, stderr)
 
 
+def do_upgrade():
+
+    up_manager, args = get_upgrade_manager()
+
+    if not up_manager:
+        print "Pas de gui pour upgrade. Appel système : %s" % postinstaller.UPGRADE_CMD
+        return os.system(postinstaller.UPGRADE_CMD)
+
+
+    # à factoriser ! TODO
+    DESKTOP_SESSION = environ.get('DESKTOP_SESSION')
+    if 'kde' in DESKTOP_SESSION:
+        sudocmd = 'kdesudo'
+    elif DESKTOP_SESSION == 'mate' or 'gnome' in DESKTOP_SESSION:
+        sudocmd = 'gksudo'
+    else:
+        #else I don't knom. Let's try gksudo
+        print "You're not running either kde, mate or gnome. We assume you have gksudo."
+        sudocmd = 'gksudo'
+
+
+    # try:
+    comm = [up_manager, args]
+    cmd = Popen( [sudocmd, " ".join(comm) ] )
+
+        # comnd = Popen( [sudocmd, ' '.join(cmd)], stdout=PIPE, stderr=PIPE )
+
+
+    ret = cmd.wait()
+    print 'upgrade : on retourne', ret # debug
+    return ret
+    # except Exception, e:
+        # print e
+        # traceback.print_stack()
+        # return -1
+
+
+
+def get_upgrade_manager():
+   """Retourne un tuple chemin de gestionnaire de mises à jour,
+   arguments de la ldc qui vont avec.
+   """
+
+   managers = {'/usr/bin/mintupdate':"",
+               '/usr/bin/update-manager':"--dist-upgrade",
+               '/usr/sbin/update-manager':"--dist-upgrade"} # todo à compléter
+
+   for manager in managers.keys():
+       if os.path.isfile(manager):
+           return (manager, managers[manager])
+
+   return None
 
 def get_package_manager(packman):
     """todo: à tester !
@@ -210,7 +283,6 @@ def get_package_manager(packman):
 
     if 'debian' or 'ubuntu' or 'mint' or 'trisquel' or 'mepis' or 'zorin' \
             or 'solus' or 'snowlinux' or 'pinguy' or 'pureos' or 'bodhi' or 'crunchbang' in plat:
-        # useful list ?
         return "apt-get install"
 
     elif 'sabayon' or 'gentoo' in plat:
@@ -247,20 +319,24 @@ def dl_url(url):
 
     if url.endswith('git'):
         try:
-            if not os.path.isdir('/tmp/upisi'): # TODO set global variable for dir
-                os.system('mkdir upisi')
+            tmp_folder = "/tmp/upisi"
+            if not os.path.isdir(tmp_folder): # TODO set global variable for dir
+                os.system('mkdir ' + tmp_folder)
 
             # on doit choper le nom du depot :
             folder_name = url.split("/")[-1][:-4] # le -4 enlève le '.git' du nom. On peut faire plus clair !
 
-            ret = os.system("cd /tmp/upisi/" + folder_name + " && git clone " + url)
+            ret = 0
+            if not os.path.isdir(os.path.join(tmp_folder,folder_name)):
+                cmd = "cd " + tmp_folder + "/" + " && git clone " + url
+                ret = os.system(cmd)
 
-            if not ret:
-                print "error while cloning git repo in folder %s" % folder_name
+            if ret:
+                print "error while cloning git repo " + url
                 return None
 
             # On doit trouver un script shell:
-            script_list = glob.glob('/tmp/upisi/' + folder_name + "/" + '*.sh')
+            script_list = glob.glob(os.path.join(tmp_folder,folder_name) + '/*.sh')
             if script_list:
                 script_name = script_list[0]
 
@@ -272,8 +348,9 @@ def dl_url(url):
             return script_name
 
 
-        except:
+        except Exception, e:
             print 'Impossible de télécharger le dépôt git dans le dossier temporaire'
+            print e
             return None
 
 

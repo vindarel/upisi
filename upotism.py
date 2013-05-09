@@ -106,6 +106,8 @@ class PostInstaller:
     TO_EXEC = []
     """liste de commandes à exécuter"""
 
+    DO_UPGRADE = False
+
 
     # TODO j'ai rentré cette méthode dans la classe, donc je peux enlever les arguments et utiliser self.arg à la place. 11 fév
     def insertTreeModel(self, treeModel, items, levelIter=None, renderer_toggle=None,
@@ -317,6 +319,7 @@ class PostInstaller:
             if not file_url:
                 print "Impossible d'ouvrir le fichier associé à cette url %s" % url
                 self.dialog_url.hide()
+                self.display_dialog("Impossible d'ouvrir cette url")
 
             else:
                 self.dialog_url.hide()
@@ -425,19 +428,17 @@ class PostInstaller:
             # Afficher l'image, s'il y a :
 
             it_cour = self.get_item(path)
-            if it_cour.has_key('img'):
+            if it_cour.has_key('im'):
                 # On ne connait pas l'image :
                 if not it_cour['title'] in self.images:
-                    # chercher l'image
-                    print 'chercher l image'
 
-                    image, folder_path = utils.get_img(it_cour['img'].strip() )
+                    image = utils.get_img(it_cour['im'].strip() )
 
                     if not image:
                         print 'No image to display for %s.' % it_cour['title']
                         # It does not work, so we don't want to try each time
                         # (slows dowmn the UI)
-                        it_cour.pop('img')
+                        it_cour.pop('im')
 
                         self.im.set_from_resource(None)
 
@@ -447,7 +448,7 @@ class PostInstaller:
                     self.im.set_from_file(image)
 
                 else:
-                    print 'on connait déjà %s' % it_cour['title']
+                    # on connait déjà l'image associée
                     self.im.set_from_file(self.images[it_cour['title']])
 
 
@@ -565,10 +566,15 @@ class PostInstaller:
 
 
     def install_apps(self):
-        # s'inspirer de mintinstall https://github.com/linuxmint/mintinstall/blob/master/usr/bin/mint-synaptic-install
+        # s'inspirer de mintinstall
+        # https://github.com/linuxmint/mintinstall/blob/master/usr/bin/mint-synaptic-install
 
-        #  systèmes sans synaptic : on tente de récupérer la commande d'installation du gestionnaire de paquets qu'on exécute normalement.
-        #  à voir pour les autres plateformes ce qu'on peut faire avec leur installateur graphique.
+        #  systèmes sans synaptic : on tente de récupérer la commande
+        #  d'installation du gestionnaire de paquets qu'on exécute
+        #  normalement.
+
+        #  à voir pour les autres plateformes ce qu'on peut faire avec
+        #  leur installateur graphique.
 
         if self.TO_INSTALL:
             if os.path.isfile(_SYNAPTIC_PATH):
@@ -577,14 +583,6 @@ class PostInstaller:
                 if ret == 0:
 
                     self.display_dialog("Tous les paquets ont été installés avec succès.")
-                    # # boite de dialogue très rapide :
-                    # self.dialog = self.builder.get_object('messagedialog1')
-                    # self.dialog.format_secondary_text('Tous les paquets ont été installés avec succès.')
-                    # self.dialog.run()
-                    # self.dialog.hide()
-
-
-                    # self.expander.set_label("Toutes les paquets ont été installés avec succès.")
 
 
             else:
@@ -593,7 +591,8 @@ class PostInstaller:
                     print "ERROR: what is your platform and your package manager ? Please e-mail the developper. No packages will be installed."
 
                 else:
-                    utils.exec_command("sudo " + pacman + " " + " ".join( ['%s' % app for app in postinstaller.TO_INSTALL] ))
+                    utils.exec_command("sudo " + pacman + " " +
+                                       " ".join( ['%s' % app for app in postinstaller.TO_INSTALL] ))
 
         # utils.packages_install(self.TO_INSTALL)
 
@@ -611,7 +610,8 @@ class PostInstaller:
             self.expander.set_label("Des commandes ont échoué")
 
         else:
-            if self.TO_EXEC:
+
+            if len(self.TO_EXEC):
                 # boite de dialogue très rapide :
                 self.display_dialog("Toutes les commandes ont été exécutées avec succès.")
 
@@ -624,6 +624,11 @@ class PostInstaller:
                 # self.expander.set_label("Toutes les commandes ont été executées avec succès")
 
 
+        if self.DO_UPGRADE:
+            ret = utils.do_upgrade()
+
+            if ret != 0:
+                self.display_dialog("La mise à jour n'a pas pu se produire.")
 
 
     def btnValidate_clicked(self, widget):
@@ -633,6 +638,7 @@ class PostInstaller:
 
         self.TO_INSTALL = []
         self.TO_EXEC = []
+        self.DO_UPGRADE = False
 
         def get_apps(iter_cour):
             """Parcours récursivement le treeModel à la recherche des éléments sélectionnés.
@@ -652,8 +658,14 @@ class PostInstaller:
                             self.TO_INSTALL.append(app)
 
                 elif 'sh' in item.keys():
-                    for cmd in item['sh']:
-                        self.TO_EXEC.append(cmd)
+
+                    # gérer l'item qui demande une upgrade
+                    if item.has_key('upgrade'):
+                        self.DO_UPGRADE = True
+
+                    else:
+                        for cmd in item['sh']:
+                            self.TO_EXEC.append(cmd)
                 else:
                     print 'ni commande, ni app pour : ', item
 
@@ -681,20 +693,23 @@ class PostInstaller:
         # response = infoWindow.run()
 
         self.dialog = self.builder.get_object('dialog1')
-        # import ipdb; ipdb.set_trace()
         self.label = self.builder.get_object('label6')
-        if not self.TO_INSTALL and not self.TO_EXEC:
+        if not self.TO_INSTALL and not self.TO_EXEC and not self.DO_UPGRADE:
             text = "Aucun programme à installer ou de commande à exécuter. Rien à faire."
         else:
 
             text = ""
             if self.TO_INSTALL:
                 text += "Vous avez choisi d'installer les paquets suivants :\n\n"
-                text += ' '.join( ['%s' % app for app in self.TO_INSTALL] )
+                text += ' '.join( ['%s' % app for app in self.TO_INSTALL] ) + "\n\n"
             if self.TO_EXEC:
-                text += "\n\nVous avez choisi d'exécuter les commandes suivantes :\n"
-                text += '\n'.join( ['%s' % app for app in self.TO_EXEC] )
-                text += "\n\nSouhaitez-vous continuer ?"
+                text += "Vous avez choisi d'exécuter les commandes suivantes :\n\n"
+                text += '\n'.join( ['%s' % app for app in self.TO_EXEC] ) + "\n\n"
+
+            if self.DO_UPGRADE:
+                text += "Vous mettrez à jour le système.\n\n"
+
+            text += "Souhaitez-vous continuer ?"
 
         self.label.set_text(text)
 
