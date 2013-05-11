@@ -586,13 +586,18 @@ class PostInstaller:
 
 
             else:
-                pacman = utils.get_package_manager()
+                pacman = utils.get_package_manager(packman=postinstaller._PACKMAN)
                 if not pacman:
                     print "ERROR: what is your platform and your package manager ? Please e-mail the developper. No packages will be installed."
 
                 else:
-                    utils.exec_command("sudo " + pacman + " " +
-                                       " ".join( ['%s' % app for app in postinstaller.TO_INSTALL] ))
+
+                    cmd = [pacman, ' '.join(['%s' % pac for pac in self.TO_INSTALL]) ]
+                    comnd = Popen( ['gksudo', ' '.join(cmd)], stdout=PIPE, stderr=PIPE ) # todo: remplacer gksudo par sudocmnd
+                    ret = comnd.wait()
+
+                    # utils.exec_command("gksudo " + pacman +
+                                       # " ".join( ['%s' % app for app in postinstaller.TO_INSTALL] ))
 
         # utils.packages_install(self.TO_INSTALL)
 

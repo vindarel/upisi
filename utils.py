@@ -216,7 +216,8 @@ def do_upgrade():
     up_manager, args = get_upgrade_manager()
 
     if not up_manager:
-        print "Pas de gui pour upgrade. Appel système : %s" % postinstaller.UPGRADE_CMD
+        # print "Pas de gui pour upgrade. Appel système : %s" % postinstaller.UPGRADE_CMD
+        print "Pas de gui pour upgrade. Appel système : quelle commande ?"
         return os.system(postinstaller.UPGRADE_CMD)
 
 
@@ -234,6 +235,9 @@ def do_upgrade():
 
     # try:
     comm = [up_manager, args]
+    while "" in comm:
+        comm.remove("")         # if we have no "upgrade" arguments, like with rigo, and it does bug with a ""
+
     cmd = Popen( [sudocmd, " ".join(comm) ] )
 
         # comnd = Popen( [sudocmd, ' '.join(cmd)], stdout=PIPE, stderr=PIPE )
@@ -256,15 +260,15 @@ def get_upgrade_manager():
 
    managers = {'/usr/bin/mintupdate':"",
                '/usr/bin/update-manager':"--dist-upgrade",
-               '/usr/sbin/update-manager':"--dist-upgrade"} # todo à compléter
-
+               '/usr/sbin/update-manager':"--dist-upgrade",
+               '/usr/bin/rigo': "" }  # todo à compléter
    for manager in managers.keys():
        if os.path.isfile(manager):
            return (manager, managers[manager])
 
-   return None
+   return (None, None)
 
-def get_package_manager(packman):
+def get_package_manager(packman=None, upgrade=False):
     """todo: à tester !
 
     L'argument 'packman' est celui trouvé dans le script de
@@ -274,27 +278,55 @@ def get_package_manager(packman):
     (qu'on puisse utiliser les recommendations données par les lignes
     'aptitude install' sous une Suse par exemple (les paquets les
     plus courants ont le même nom). C'est plus souple pour
-    l'utilisateur. Voir à l'usage."""
+    l'utilisateur. Voir à l'usage.
+
+
+    - upgrade: si on veut récupérer la gui (si elle existe) pour mettre à jour le système.
+
+    """
 
     # existe-t-il méthode plus automatique ??
     # platform.linux_distribution() -> (LinuxMint, 1, Debian)
 
     plat = platform.platform()
 
-    if 'debian' or 'ubuntu' or 'mint' or 'trisquel' or 'mepis' or 'zorin' \
-            or 'solus' or 'snowlinux' or 'pinguy' or 'pureos' or 'bodhi' or 'crunchbang' in plat:
+    def is_in_platform(alist):
+
+        for elt in alist:
+            if elt in plat:
+                return True
+
+        return False
+
+
+
+    # if 'debian' or 'ubuntu' or 'mint' or 'trisquel' or 'mepis' or 'zorin' \
+    if is_in_platform( [ 'debian', 'ubuntu' , 'mint' , 'trisquel' , 'mepis' , \
+                         'zorin', 'solus' , 'snowlinux' , 'pinguy' , 'pureos',\
+                         'bodhi' , 'crunchbang' ]):
         return "apt-get install"
 
-    elif 'sabayon' or 'gentoo' in plat:
+    elif 'sabayon' in plat:
+        if upgrade:
+            return "rigo"
+        return "rigo --install"
+
+    elif 'gentoo' in plat:
+
+        # or 'gentoo' in plat:
         return "equo install"
 
-    elif 'arch'  or 'manjaro' or 'chakra' in plat:
+    # elif 'arch'  or 'manjaro' or 'chakra' in plat:
+    elif  is_in_platform( ['arch'  , 'manjaro' , 'chakra']):
         return "pacman -S"
 
-    elif 'fedora' or 'korora' in plat:
+    # elif 'fedora' or 'korora' in plat:
+    elif is_in_platform( ['fedora', 'korora'] ):
         return "yum install"
 
-    elif 'mandriva' or 'rosa' or 'mageia' or 'mandrake' or 'pclinuxos' in plat:
+    # elif 'mandriva' or 'rosa' or 'mageia' or 'mandrake' or 'pclinuxos' in plat:
+    elif is_in_platform( [ 'mandriva' , 'rosa' , 'mageia' , 'mandrake' , \
+                           'pclinuxos']):
         return "urpmi"
 
     elif 'suse' in plat:
