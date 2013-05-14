@@ -740,7 +740,7 @@ class PostInstaller:
 
 if __name__ == "__main__":
 
-    script_name = "mint-postinstall.sh"
+    script_name = "default-postinstall.sh"
 
     if len(sys.argv) > 1:
         arg = sys.argv[1]
