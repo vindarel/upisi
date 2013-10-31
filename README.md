@@ -30,7 +30,29 @@ dérouler. On peut imbriquer autant de catégorie que l'on veut.
 
   - #+gui:toggle=False : indique à l'interface de ne pas sélectionner cet élément par défaut.
 
-Le résultat ressemble à:
+Exemple
+=======
+
+Le script shell suivant (qui reste un script shell valide pour les geeks):
+
+    #!/bin/sh
+
+    #+gui:toggle=False
+
+    aptitude install npm
+
+    #: Programmes pratiques
+    sudo apt-get install -y terminator mplayer bash-completion git cclive htop tree ncdu python-pip soundconverter nautilus-open-terminal
+
+    #+cat:Lecteurs Audio et Vidéo
+
+    #: Clementine
+    #+im:im/clementine.png
+    #+doc: Lecteur très pratique (et multiplateforme)
+    sudo apt-get install -y clementine
+    etc…
+
+Obtient l'interface graphique suivante (plus facile pour les non-geeks):
 
 ![interface du script](im/universal-post-installation-scripts-insterface.png "interface générée")
 
